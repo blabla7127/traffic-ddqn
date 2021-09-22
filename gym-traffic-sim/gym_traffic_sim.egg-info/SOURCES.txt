@@ -1,0 +1,6 @@
+setup.py
+gym_traffic_sim.egg-info/PKG-INFO
+gym_traffic_sim.egg-info/SOURCES.txt
+gym_traffic_sim.egg-info/dependency_links.txt
+gym_traffic_sim.egg-info/requires.txt
+gym_traffic_sim.egg-info/top_level.txt
