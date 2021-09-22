@@ -1,7 +1,11 @@
 # 구현에 사용할 패키지 임포트
 import numpy as np
+#from numpy.lib.npyio import save
 import torch
 import time
+import matplotlib.pyplot as plt
+from matplotlib.animation import ArtistAnimation
+
 FILENAME = int(time.time())
 # namedtuple 생성
 from collections import namedtuple
@@ -12,7 +16,7 @@ Transition = namedtuple(
 # 상수 정의
 ENV = 'gym_traffic_sim:traffic-sim-v0'  # 태스크 이름
 GAMMA = 0.99  # 시간할인율
-MAX_STEPS = 2000  # 1에피소드 당 최대 단계 수
+MAX_STEPS = 500  # 1에피소드 당 최대 단계 수
 NUM_EPISODES = 100000  # 최대 에피소드 수
 
 # transition을 저장하기 위한 메모리 클래스
@@ -300,6 +304,11 @@ class Environment_:
             state_0 = torch.unsqueeze(state_0, 0)  # size 4를 size 1*4로 변환
             state_1 = torch.unsqueeze(state_1, 0)  # size 4를 size 1*4로 변환
 
+            save_anim = False
+            if episode % 1000 == 0:
+                save_anim = True
+                frames = []
+
             for step in range(MAX_STEPS):  # 1 에피소드에 해당하는 반복문
                 iter += 1
                 # 애니메이션 만드는 부분을 주석처리
@@ -314,6 +323,8 @@ class Environment_:
                 # 행동 a_t를 실행하여 다음 상태 s_{t+1}과 done 플래그 값을 결정
                 # action에 .item()을 호출하여 행동 내용을 구함
                 (observation_next_0, observation_next_1), (rwd_0, rwd_1), (done_0, done_1), _ = self.env.step((action_0.item(), action_1.item()))  # reward와 info는 사용하지 않으므로 _로 처리
+                if save_anim:
+                    frames.append((self.env.render(), rwd_0, rwd_1))
                 observation_next_0 = np.array(observation_next_0)
                 observation_next_1 = np.array(observation_next_1)
                 # if done_0:
@@ -371,7 +382,20 @@ class Environment_:
                     log_.close()
                     self.env.reset()
                     break
-                    
+            
+            if save_anim:
+                fig, ax = plt.subplots(1,1)
+                artists = []
+
+                for frame, rwd0, rwd1 in frames:
+                    ms = ax.matshow(frame)
+                    ax.axes.xaxis.set_ticks([])
+                    ax.axes.yaxis.set_ticks([])
+                    title = plt.text(0.5,1.01,'{0:8.5f},        {1:8.5f}'.format(rwd0[0], rwd1[0]), ha="center",va="bottom",
+                                transform=ax.transAxes, fontsize="large")
+                    artists.append([ms,title])
+                ani = ArtistAnimation(fig, artists, interval=500)
+                ani.save('anims/FILENAME/{}.gif'.format(episode))        
                     
             if episode_final is True:
                 # 애니메이션 생성 부분을 주석처리함
