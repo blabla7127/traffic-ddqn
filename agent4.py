@@ -5,8 +5,11 @@ import torch
 import time
 import matplotlib.pyplot as plt
 from matplotlib.animation import ArtistAnimation
+import os
 
 FILENAME = int(time.time())
+os.mkdir('anims/{}'.format(FILENAME))
+
 # namedtuple 생성
 from collections import namedtuple
 
@@ -394,8 +397,8 @@ class Environment_:
                     title = plt.text(0.5,1.01,'{0:8.5f},        {1:8.5f}'.format(rwd0[0], rwd1[0]), ha="center",va="bottom",
                                 transform=ax.transAxes, fontsize="large")
                     artists.append([ms,title])
-                ani = ArtistAnimation(fig, artists, interval=500)
-                ani.save('anims/FILENAME/{}.gif'.format(episode))        
+                ani = ArtistAnimation(fig, artists, interval=100)
+                ani.save('anims/{}/{}.gif'.format(FILENAME,episode))        
                     
             if episode_final is True:
                 # 애니메이션 생성 부분을 주석처리함

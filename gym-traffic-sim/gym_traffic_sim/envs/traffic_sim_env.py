@@ -191,7 +191,7 @@ class TrafficSimEnv(gym.Env):
                     distance = pos_ - front_pos
                     
                     mask_0 = (distance <= 2)
-                    mask_1 = ((~mask_0) & (distance <=6))
+                    mask_1 = ((~mask_0) & (distance <=4))
                     mask_2 = ~(mask_0 | mask_1)
 
                     speed_[(mask_0 & mask_is_valid_)] = 0
