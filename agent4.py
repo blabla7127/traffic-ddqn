@@ -17,8 +17,7 @@ NUM_EPISODES = 100000  # 최대 에피소드 수
 
 # transition을 저장하기 위한 메모리 클래스
 
-device = torch.device("cuda")
-#device = torch.device("cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
 class ReplayMemory:
