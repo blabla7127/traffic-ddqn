@@ -279,7 +279,7 @@ class Environment_:
 
         iter = 0
         text = ('episodes:steps:mean_steps(10):rwd:mean_rwd:rwd_sum:rwd_sum-?*step:iter')
-        log_ = open('{}.log'.format(FILENAME), 'a')
+        log_ = open('logs/{}.log'.format(FILENAME), 'a')
         log_.write(text+'\n')
         log_.close()
 
@@ -367,7 +367,7 @@ class Environment_:
                 if done_0:
                     text = ('{0:7d}:{1:6d}:{2:9.1f}:{3:9.5f}:{4:9.5f}:{5:9.1f}:{6:11.5f}:{7:10d}').format(episode, step + 1, episode_10_list.mean(), (rwd_0[0]+rwd_1[0]).cpu().numpy(), rwd[0].cpu().numpy()/(step + 1), rwd[0].cpu().numpy(), rwd[0].cpu().numpy() - 0.01*(step + 1), iter)
                     print(text)
-                    log_ = open('{}.log'.format(FILENAME), 'a')
+                    log_ = open('logs/{}.log'.format(FILENAME), 'a')
                     log_.write(text+'\n')
                     log_.close()
                     self.env.reset()

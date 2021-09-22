@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 args = sys.argv[1:]
 arr = []
-with open(args[0], 'r') as log:
+with open('logs/'+args[0], 'r') as log:
     log.readline()
     while True:
         line = log.readline()
