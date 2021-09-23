@@ -398,7 +398,7 @@ class Environment_:
                                 transform=ax.transAxes, fontsize="large")
                     artists.append([ms,title])
                 ani = ArtistAnimation(fig, artists, interval=100)
-                ani.save('anims/{}/{}.gif'.format(FILENAME,episode))        
+                ani.save('anims/{}/{}.gif'.format(FILENAME,episode), dpi = 250)        
                     
             if episode_final is True:
                 # 애니메이션 생성 부분을 주석처리함

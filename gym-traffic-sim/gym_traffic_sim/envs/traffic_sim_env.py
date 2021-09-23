@@ -1,5 +1,6 @@
 import gym
 from gym import error, spaces, utils
+from gym.core import ActionWrapper
 from gym.utils import seeding
 
 import numpy as np
@@ -13,7 +14,7 @@ class TrafficSimEnv(gym.Env):
         self.iter = 0
         self.ang_0 = 0
         self.ang_1 = 0
-        self.LEN_ROAD = 50
+        self.LEN_ROAD = 100
         self.route = np.array([
                         [[ 0, 0],[ 5, 1],[-1,-1]],
                         [[ 0, 2],[-1,-1],[-1,-1]],
@@ -69,6 +70,12 @@ class TrafficSimEnv(gym.Env):
                 [0,0,0],
                 [0,0,0],
                 [1,0,0]
+            ],
+            [
+                [0,0,0],
+                [0,0,0],
+                [0,0,0],
+                [0,0,0]
             ]
 
         ], np.bool8)
@@ -94,13 +101,23 @@ class TrafficSimEnv(gym.Env):
         self.linebuf_pointer = np.zeros((8,3), np.int8)
         self.done = False
         self.trafficlight = np.zeros((8,3), np.bool8)
+        self.traffic_status = np.zeros(2, dtype=np.int8) - 1
+        self.traffic_pointer = np.zeros(2, dtype=np.int8)
 
         return ((*self.queue_length_per_line[[0,4,6,2]].flatten(), *self.mean_waittime_per_line[[0,4,6,2]].flatten()),(*self.queue_length_per_line[[1,5,7,3]].flatten(), *self.mean_waittime_per_line[[1,5,7,3]].flatten()))
 
     def adjust_trafficlight(self, action):
-        a0, a1 = action
-        self.trafficlight[[0,2,4,6]] = self.trafficlight_types[a0]
-        self.trafficlight[[1,3,5,7]] = self.trafficlight_types[a1]
+        foo = [[0,2,4,6],[1,3,5,7]]
+        for iter, iaction in zip([0,1],action):
+            if iaction != self.traffic_status[iter]:
+                self.traffic_pointer[iter] = (self.traffic_pointer[iter] + 1) % 4
+                if self.traffic_pointer[iter] == 0:
+                    self.trafficlight[foo[iter]] = self.trafficlight_types[iaction]
+                    self.traffic_status[iter] = iaction
+                else:
+                    self.trafficlight[foo[iter]] = self.trafficlight_types[-1]
+            else:
+                self.traffic_pointer[iter] = 0
 
     def add_line_buf(self, line_0, line_1, car_id):
         linebuf_pointer = self.linebuf_pointer[line_0, line_1]
@@ -146,8 +163,8 @@ class TrafficSimEnv(gym.Env):
         self.cars_buf[self.carbuf_pointer, 1] = 0
         line_0_0, line_0_1 = self.route[self.cars_buf[self.carbuf_pointer, 0], self.cars_buf[self.carbuf_pointer, 1]]
         
-        asdf = self.add_line_buf(line_0_0, line_0_1, self.carbuf_pointer)
-        if asdf == 1:
+        if self.add_line_buf(line_0_0, line_0_1, self.carbuf_pointer) == 1:
+            self.create_car()
             return
 
         while self.cars_buf[self.carbuf_pointer, 1] == -1:
@@ -158,7 +175,7 @@ class TrafficSimEnv(gym.Env):
         pos = self.lines_buf[...,2]
         speed = self.lines_buf[...,4]
         pos -= speed
-        mask_is_in_queue = (self.lines_buf[..., 2] < (self.LEN_ROAD//4)*3) & (self.lines_buf[..., 2] >= 0) & (mask_is_valid)
+        mask_is_in_queue = (self.lines_buf[..., 2] < (self.LEN_ROAD//2)) & (self.lines_buf[..., 2] >= 0) & (mask_is_valid)
         queue_len = mask_is_in_queue.sum(axis=-1)
         waittime_sum = np.zeros((8,3))
         for i in range(8):
@@ -171,8 +188,8 @@ class TrafficSimEnv(gym.Env):
         self.mean_waittime_per_line = waittime_sum / (queue_len + 1)
 
 
-        s_plus = speed + 1
-        speed_inc = 2*(2 < s_plus) + (s_plus)*(2 >= s_plus)
+        #s_plus = speed + 1
+        #speed_inc = 2*(2 < s_plus) + (s_plus)*(2 >= s_plus)
         __index_of_front = self.lines_buf[..., 0]
         
         for i in range(8):
@@ -184,23 +201,24 @@ class TrafficSimEnv(gym.Env):
                     mask_is_valid_ = mask_is_valid[i,j]
                     pos_ = pos[i,j]
                     speed_ = speed[i,j]
-                    speed_inc_ = speed_inc[i,j]
+                    #speed_inc_ = speed_inc[i,j]
 
                     __index_of_front_ = __index_of_front[i,j]
                     front_pos = pos_[__index_of_front_]
                     distance = pos_ - front_pos
                     
                     mask_0 = (distance <= 2)
-                    mask_1 = ((~mask_0) & (distance <=4))
+                    mask_1 = ((~mask_0) & (distance <=3))
                     mask_2 = ~(mask_0 | mask_1)
 
                     speed_[(mask_0 & mask_is_valid_)] = 0
                     speed_[(mask_1 & mask_is_valid_)] = 1
-                    speed_[(mask_2 & mask_is_valid_)] = speed_inc_[(mask_2 & mask_is_valid_)]
+                    speed_[(mask_2 & mask_is_valid_)] = 2#speed_inc_[(mask_2 & mask_is_valid_)]
 
                     greenlight = self.trafficlight[i,j]
                     if greenlight or pos_[head] >= 3:
-                        speed_[head] = speed_inc_[head]
+                        s_plus = speed_[head] + 1
+                        speed_[head] = 2*(2 < s_plus) + (s_plus)*(2 >= s_plus)
                     elif pos_[head] > 0:
                         speed_[head] = 1
                     else:
@@ -230,16 +248,19 @@ class TrafficSimEnv(gym.Env):
         self.iter += 1
 
         self.adjust_trafficlight(action)
-        for _ in range(3):
+        for _ in range(1):
             self.create_car()
         self.move_car()
 
-        rms_queue_len_0 = np.sqrt(np.mean(np.square(self.queue_length_per_line[[0,4,6,2]])))
-        rms_queue_len_1 = np.sqrt(np.mean(np.square(self.queue_length_per_line[[1,5,7,3]])))
-        rms_waittime_0 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[0,4,6,2]])))
-        rms_waittime_1 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[1,5,7,3]])))
-        aang_0 = rms_queue_len_0 * rms_waittime_0
-        aang_1 = rms_queue_len_1 * rms_waittime_1
+        # rms_queue_len_0 = np.sqrt(np.mean(np.square(self.queue_length_per_line[[0,4,6,2]])))
+        # rms_queue_len_1 = np.sqrt(np.mean(np.square(self.queue_length_per_line[[1,5,7,3]])))
+        # rms_waittime_0 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[0,4,6,2]])))
+        # rms_waittime_1 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[1,5,7,3]])))
+        # aang_0 = rms_queue_len_0 * rms_waittime_0
+        # aang_1 = rms_queue_len_1 * rms_waittime_1
+
+        aang_0 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[0,4,6,2]]*self.queue_length_per_line[[0,4,6,2]])))
+        aang_1 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[1,5,7,3]]*self.queue_length_per_line[[1,5,7,3]])))
 
         # rwd_0 = np.array(((self.ang_0 - aang_0),))/10
         # rwd_1 = np.array(((self.ang_1 - aang_1),))/10
@@ -293,8 +314,8 @@ class TrafficSimEnv(gym.Env):
         frame[54:51:-1,114:165] = lines[3]
         frame[54:57,50::-1] = lines[4]
         frame[54:57,107:56:-1] = lines[5]
-        frame[57:108,54:57] = lines[0].transpose()
-        frame[57:108,111:114] = lines[1].transpose()
+        frame[57:108,54:57] = lines[6].transpose()
+        frame[57:108,111:114] = lines[7].transpose()
 
         return frame
 
@@ -305,11 +326,25 @@ from matplotlib.animation import ArtistAnimation
 def main():
     env = TrafficSimEnv()
     frames = []
+    asdf = 0
+    asd = 50
     for i in range(500):
+        if asdf < asd:
+            action = 0
+        elif asdf < asd*2:
+            action = 1
+        elif asdf < asd*3:
+            action = 2
+        else:
+            action = 3
+        asdf = (asdf + 1) % (asd * 4)
         
-        action1 = np.random.randint(0,4)
-        action2 = np.random.randint(0,4)
+        action1 = action
+        action2 = action
 
+        # action1 = np.random.randint(0,4)
+        # action2 = np.random.randint(0,4)
+        
         obs, rwd, done, _ = env.step((action1, action2))
         frames.append((env.render(),rwd[0],rwd[1]))
         if env.iter%100 == 0:
@@ -324,7 +359,7 @@ def main():
 
 
 
-    fig, ax = plt.subplots(1,1)
+    fig, ax = plt.subplots()
     artists = []
 
     for frame, rwd0, rwd1 in frames:
@@ -334,9 +369,9 @@ def main():
         title = plt.text(0.5,1.01,'{0:8.5f},        {1:8.5f}'.format(rwd0[0], rwd1[0]), ha="center",va="bottom",
                     transform=ax.transAxes, fontsize="large")
         artists.append([ms,title])
-    ani = ArtistAnimation(fig, artists, interval=500)
+    ani = ArtistAnimation(fig, artists, interval=100)
     print('a')
-    ani.save('lat.gif')
+    ani.save('{}.gif'.format(asd), dpi = 250)
     print('b')
     plt.show()
 
