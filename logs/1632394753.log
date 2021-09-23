@@ -1,0 +1,2 @@
+episodes:steps:mean_steps(10):rwd:mean_rwd:rwd_sum:score_sum:iter
+      0:   500:     50.0: -6.08664: -2.61880:  -1309.4:-639.90295:       500

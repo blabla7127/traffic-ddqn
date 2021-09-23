@@ -284,7 +284,7 @@ class Environment_:
         state_1 = torch.zeros(0).to(device)
 
         iter = 0
-        text = ('episodes:steps:mean_steps(10):rwd:mean_rwd:rwd_sum:rwd_sum-?*step:iter')
+        text = ('episodes:steps:mean_steps(10):rwd:mean_rwd:rwd_sum:score_sum:iter')
         log_ = open('logs/{}.log'.format(FILENAME), 'a')
         log_.write(text+'\n')
         log_.close()
@@ -294,7 +294,8 @@ class Environment_:
             observation_0, observation_1 = obs
             observation_0 = torch.from_numpy(np.array(observation_0)).float().to(device)
             observation_1 = torch.from_numpy(np.array(observation_1)).float().to(device)
-            
+            score = 0
+
             state_0 = observation_0.to(device)
             state_1 = observation_1.to(device)  # 관측을 변환없이 그대로 상태 s로 사용
             rwd = torch.zeros(1).to(device)
@@ -325,7 +326,7 @@ class Environment_:
 
                 # 행동 a_t를 실행하여 다음 상태 s_{t+1}과 done 플래그 값을 결정
                 # action에 .item()을 호출하여 행동 내용을 구함
-                (observation_next_0, observation_next_1), (rwd_0, rwd_1), (done_0, done_1), _ = self.env.step((action_0.item(), action_1.item()))  # reward와 info는 사용하지 않으므로 _로 처리
+                (observation_next_0, observation_next_1), (rwd_0, rwd_1), (done_0, done_1), (score_0, score_1) = self.env.step((action_0.item(), action_1.item()))  # reward와 info는 사용하지 않으므로 _로 처리
                 if save_anim:
                     frames.append((self.env.render(), rwd_0, rwd_1))
                 observation_next_0 = np.array(observation_next_0)
@@ -337,6 +338,8 @@ class Environment_:
                 rwd_0 = torch.FloatTensor(rwd_0).to(device)
                 rwd_1 = torch.FloatTensor(rwd_1).to(device)
                 rwd += rwd_0 + rwd_1
+
+                score += score_0[0] + score_1[0]
                 
 #                if iter % 1000 == 0:
 #                    print(iter, action_0.cpu().numpy(), action_1.cpu().numpy(), (rwd_0[0]+rwd_1[0]).cpu().numpy())
@@ -378,7 +381,7 @@ class Environment_:
 
                 # 에피소드 종료 처리
                 if done_0:
-                    text = ('{0:7d}:{1:6d}:{2:9.1f}:{3:9.5f}:{4:9.5f}:{5:9.1f}:{6:11.5f}:{7:10d}').format(episode, step + 1, episode_10_list.mean(), (rwd_0[0]+rwd_1[0]).cpu().numpy(), rwd[0].cpu().numpy()/(step + 1), rwd[0].cpu().numpy(), rwd[0].cpu().numpy() - 0.01*(step + 1), iter)
+                    text = ('{0:7d}:{1:6d}:{2:9.1f}:{3:9.5f}:{4:9.5f}:{5:9.1f}:{6:9.5f}:{7:10d}').format(episode, step + 1, episode_10_list.mean(), (rwd_0[0]+rwd_1[0]).cpu().numpy(), rwd[0].cpu().numpy()/(step + 1), rwd[0].cpu().numpy(), score, iter)
                     print(text)
                     log_ = open('logs/{}.log'.format(FILENAME), 'a')
                     log_.write(text+'\n')

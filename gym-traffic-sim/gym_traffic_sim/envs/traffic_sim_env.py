@@ -14,7 +14,7 @@ class TrafficSimEnv(gym.Env):
         self.iter = 0
         self.ang_0 = 0
         self.ang_1 = 0
-        self.LEN_ROAD = 100
+        self.LEN_ROAD = 50
         self.route = np.array([
                         [[ 0, 0],[ 5, 1],[-1,-1]],
                         [[ 0, 2],[-1,-1],[-1,-1]],
@@ -104,6 +104,8 @@ class TrafficSimEnv(gym.Env):
         self.traffic_status = np.zeros(2, dtype=np.int8) - 1
         self.traffic_pointer = np.zeros(2, dtype=np.int8)
 
+        self.exit_loop = 0
+
         return ((*self.queue_length_per_line[[0,4,6,2]].flatten(), *self.mean_waittime_per_line[[0,4,6,2]].flatten()),(*self.queue_length_per_line[[1,5,7,3]].flatten(), *self.mean_waittime_per_line[[1,5,7,3]].flatten()))
 
     def adjust_trafficlight(self, action):
@@ -160,14 +162,19 @@ class TrafficSimEnv(gym.Env):
 
     def create_car(self):
         self.cars_buf[self.carbuf_pointer, 0] = np.random.randint(0,29)
-        self.cars_buf[self.carbuf_pointer, 1] = 0
-        line_0_0, line_0_1 = self.route[self.cars_buf[self.carbuf_pointer, 0], self.cars_buf[self.carbuf_pointer, 1]]
-        
+        line_0_0, line_0_1 = self.route[self.cars_buf[self.carbuf_pointer, 0], 0]
+        #print(line_0_0, line_0_1, end=' ')
         if self.add_line_buf(line_0_0, line_0_1, self.carbuf_pointer) == 1:
-            self.create_car()
+            if self.exit_loop < 10:
+                self.exit_loop += 1
+                self.create_car()
+            self.exit_loop = 0
             return
 
-        while self.cars_buf[self.carbuf_pointer, 1] == -1:
+        #print(self.cars_buf[self.carbuf_pointer, 0])
+        self.cars_buf[self.carbuf_pointer, 1] = 0
+
+        while self.cars_buf[self.carbuf_pointer, 1] == 0:
             self.carbuf_pointer = (self.carbuf_pointer + 1) % self.len_cars_buf
 
     def move_car(self):
@@ -242,14 +249,14 @@ class TrafficSimEnv(gym.Env):
                             self.rmv_line_buf(i,j)
                             self.cars_buf[head_id, 1] = cur_step + 1
                         else:
+                            #print(i,j,l0,l1, cur_step+1, self.cars_buf[head_id,0])
                             self.lines_buf[i,j,head,4] = 0
 
     def step(self, action : tuple):
         self.iter += 1
 
         self.adjust_trafficlight(action)
-        for _ in range(1):
-            self.create_car()
+        self.create_car()
         self.move_car()
 
         # rms_queue_len_0 = np.sqrt(np.mean(np.square(self.queue_length_per_line[[0,4,6,2]])))
@@ -262,10 +269,10 @@ class TrafficSimEnv(gym.Env):
         aang_0 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[0,4,6,2]]*self.queue_length_per_line[[0,4,6,2]])))
         aang_1 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[1,5,7,3]]*self.queue_length_per_line[[1,5,7,3]])))
 
-        # rwd_0 = np.array(((self.ang_0 - aang_0),))/10
-        # rwd_1 = np.array(((self.ang_1 - aang_1),))/10
-        rwd_0 = np.array(((-aang_0),))/1000
-        rwd_1 = np.array(((-aang_1),))/1000
+        rwd_0 = np.array(((self.ang_0 - aang_0 * 1.2),))/100
+        rwd_1 = np.array(((self.ang_1 - aang_1 * 1.2),))/100
+        score_0 = np.array(((-aang_0),))/1000
+        score_1 = np.array(((-aang_1),))/1000
 
 
         self.ang_0 = aang_0
@@ -273,7 +280,7 @@ class TrafficSimEnv(gym.Env):
 
         if self.iter == 500:
             self.done = True
-        ret = (((*self.queue_length_per_line[[0,4,6,2]].flatten(), *self.mean_waittime_per_line[[0,4,6,2]].flatten()),(*(self.queue_length_per_line[[1,5,7,3]].flatten()), *self.mean_waittime_per_line[[1,5,7,3]].flatten())), (rwd_0, rwd_1), (self.done, self.done), None)
+        ret = (((*self.queue_length_per_line[[0,4,6,2]].flatten(), *self.mean_waittime_per_line[[0,4,6,2]].flatten()),(*(self.queue_length_per_line[[1,5,7,3]].flatten()), *self.mean_waittime_per_line[[1,5,7,3]].flatten())), (rwd_0, rwd_1), (self.done, self.done), (score_0, score_1))
 
         return ret
     
@@ -288,8 +295,18 @@ class TrafficSimEnv(gym.Env):
         frame[57:108,0:51] = 1
         frame[57:108,57:108] = 1
         frame[57:108,114:165] = 1
+
         frame[51:57,51:57] = 2
         frame[51:57,108:114] = 2
+        
+        frame[51,51:54] = self.trafficlight[0,::-1] + 2
+        frame[51,108:111] = self.trafficlight[1,::-1] + 2
+        frame[51:54,56] = self.trafficlight[2,::-1].transpose() + 2
+        frame[51:54,113] = self.trafficlight[3,::-1].transpose() + 2
+        frame[54:57,51] = self.trafficlight[4].transpose() + 2
+        frame[54:57,108] = self.trafficlight[5].transpose() + 2
+        frame[56,54:57] = self.trafficlight[6] + 2
+        frame[56,111:114] = self.trafficlight[7] + 2
 
         lines = np.zeros((8,3,51), dtype=np.int8)
         for i in range(8):
@@ -302,7 +319,7 @@ class TrafficSimEnv(gym.Env):
                     pos = self.lines_buf[i,j,cur,2]
                     
                     if pos >= 0 and pos <= 50:
-                        lines[i,j,pos] = 3
+                        lines[i,j,pos] = 4
                     cur = self.lines_buf[i,j,cur,1]
                     if cur == -1:
                         break
@@ -310,8 +327,8 @@ class TrafficSimEnv(gym.Env):
         # print(frame[0:51:-1,51:54:-1])
         frame[50::-1,53:50:-1] = lines[0].transpose()
         frame[50::-1,110:107:-1] = lines[1].transpose()
-        frame[54:51:-1,57:108] = lines[2]
-        frame[54:51:-1,114:165] = lines[3]
+        frame[53:50:-1,57:108] = lines[2]
+        frame[53:50:-1,114:165] = lines[3]
         frame[54:57,50::-1] = lines[4]
         frame[54:57,107:56:-1] = lines[5]
         frame[57:108,54:57] = lines[6].transpose()
@@ -327,7 +344,7 @@ def main():
     env = TrafficSimEnv()
     frames = []
     asdf = 0
-    asd = 50
+    asd = 80
     for i in range(500):
         if asdf < asd:
             action = 0
