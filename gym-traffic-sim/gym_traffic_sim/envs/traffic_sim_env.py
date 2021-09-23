@@ -112,7 +112,7 @@ class TrafficSimEnv(gym.Env):
         foo = [[0,2,4,6],[1,3,5,7]]
         for iter, iaction in zip([0,1],action):
             if iaction != self.traffic_status[iter]:
-                self.traffic_pointer[iter] = (self.traffic_pointer[iter] + 1) % 4
+                self.traffic_pointer[iter] = (self.traffic_pointer[iter] + 1) % 5
                 if self.traffic_pointer[iter] == 0:
                     self.trafficlight[foo[iter]] = self.trafficlight_types[iaction]
                     self.traffic_status[iter] = iaction
@@ -269,8 +269,8 @@ class TrafficSimEnv(gym.Env):
         aang_0 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[0,4,6,2]]*self.queue_length_per_line[[0,4,6,2]])))
         aang_1 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[1,5,7,3]]*self.queue_length_per_line[[1,5,7,3]])))
 
-        rwd_0 = np.array(((self.ang_0 - aang_0 * 1.2),))/100
-        rwd_1 = np.array(((self.ang_1 - aang_1 * 1.2),))/100
+        rwd_0 = np.array(((self.ang_0 - aang_0 * 1.07),))/100
+        rwd_1 = np.array(((self.ang_1 - aang_1 * 1.07),))/100
         score_0 = np.array(((-aang_0),))/1000
         score_1 = np.array(((-aang_1),))/1000
 
@@ -343,8 +343,10 @@ from matplotlib.animation import ArtistAnimation
 def main():
     env = TrafficSimEnv()
     frames = []
+    rwd_sum = 0
+    scr_sum = 0
     asdf = 0
-    asd = 80
+    asd = 15
     for i in range(500):
         if asdf < asd:
             action = 0
@@ -362,19 +364,20 @@ def main():
         # action1 = np.random.randint(0,4)
         # action2 = np.random.randint(0,4)
         
-        obs, rwd, done, _ = env.step((action1, action2))
+        obs, rwd, done, scr = env.step((action1, action2))
         frames.append((env.render(),rwd[0],rwd[1]))
-        if env.iter%100 == 0:
+        rwd_sum += rwd[0] + rwd[1]
+        scr_sum += scr[0] + scr[1]
+        if env.iter%1000 == 0:
             print(obs)
             print(env.iter)
         if done[0]:
             print(obs)
             print(env.iter)
-            print(rwd)
+            print(rwd_sum[0])
+            print(scr_sum[0])
             print('---')
             env.reset()
-
-
 
     fig, ax = plt.subplots()
     artists = []
