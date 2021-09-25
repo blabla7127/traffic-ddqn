@@ -13,20 +13,23 @@ with open('logs/'+args[0], 'r') as log:
         arr.append(list(map(str.strip, line.split(":"))))
 arr = np.array(arr)
 
-print(args[1:])
+
+
+lol = 20
+
 args_len = len(args[1:])
 for iter, arg in zip(range(args_len), args[1:]):
     sel = int(arg)
         
     arr_ = np.array(list(map(float, arr[:,sel])))
-    ten_lst = arr_[:10]
+    lol_lst = arr_[:lol]
     _len = len(arr_)
     pointer = _len - 1
     result = []
-    for i in range(10,_len):
-        result.append(ten_lst.mean())
-        pointer = (pointer + 1) % 10
-        ten_lst[pointer] = arr_[i]
+    for i in range(lol,_len):
+        result.append(lol_lst.mean())
+        pointer = (pointer + 1) % lol
+        lol_lst[pointer] = arr_[i]
     asdf = args_len * 100 + 10 + (iter + 1)
     plt.subplot(asdf)
     plt.plot(result[10:])

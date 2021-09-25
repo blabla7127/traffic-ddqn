@@ -102,24 +102,24 @@ class TrafficSimEnv(gym.Env):
         self.done = False
         self.trafficlight = np.zeros((8,3), np.bool8)
         self.traffic_status = np.zeros(2, dtype=np.int8) - 1
-        self.traffic_pointer = np.zeros(2, dtype=np.int8)
+        self.traffic_pointer = np.zeros(2, dtype=np.int8) + 3
 
         self.exit_loop = 0
 
-        return ((*self.queue_length_per_line[[0,4,6,2]].flatten(), *self.mean_waittime_per_line[[0,4,6,2]].flatten()),(*self.queue_length_per_line[[1,5,7,3]].flatten(), *self.mean_waittime_per_line[[1,5,7,3]].flatten()))
+        return ((self.traffic_pointer[0], *self.queue_length_per_line[[0,4,6,2]].flatten(), *(self.mean_waittime_per_line[[0,4,6,2]] / 10).flatten()),(self.traffic_pointer[1], *self.queue_length_per_line[[1,5,7,3]].flatten(), *(self.mean_waittime_per_line[[1,5,7,3]] / 10).flatten()))
 
     def adjust_trafficlight(self, action):
         foo = [[0,2,4,6],[1,3,5,7]]
         for iter, iaction in zip([0,1],action):
             if iaction != self.traffic_status[iter]:
-                self.traffic_pointer[iter] = (self.traffic_pointer[iter] + 1) % 5
-                if self.traffic_pointer[iter] == 0:
+                self.traffic_pointer[iter] = (self.traffic_pointer[iter] + 1) % 4
+                if self.traffic_pointer[iter] == 3:
                     self.trafficlight[foo[iter]] = self.trafficlight_types[iaction]
                     self.traffic_status[iter] = iaction
                 else:
                     self.trafficlight[foo[iter]] = self.trafficlight_types[-1]
             else:
-                self.traffic_pointer[iter] = 0
+                self.traffic_pointer[iter] = 3
 
     def add_line_buf(self, line_0, line_1, car_id):
         linebuf_pointer = self.linebuf_pointer[line_0, line_1]
@@ -266,21 +266,20 @@ class TrafficSimEnv(gym.Env):
         # aang_0 = rms_queue_len_0 * rms_waittime_0
         # aang_1 = rms_queue_len_1 * rms_waittime_1
 
-        aang_0 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[0,4,6,2]]*self.queue_length_per_line[[0,4,6,2]])))
-        aang_1 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[1,5,7,3]]*self.queue_length_per_line[[1,5,7,3]])))
-
-        rwd_0 = np.array(((self.ang_0 - aang_0 * 1.07),))/100
-        rwd_1 = np.array(((self.ang_1 - aang_1 * 1.07),))/100
-        score_0 = np.array(((-aang_0),))/1000
-        score_1 = np.array(((-aang_1),))/1000
-
-
+        aang_0 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[0,4,6,2]]*self.queue_length_per_line[[0,4,6,2]])))/1000
+        aang_1 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[1,5,7,3]]*self.queue_length_per_line[[1,5,7,3]])))/1000
+    
+        score_0 = np.array(((-aang_0),))
+        score_1 = np.array(((-aang_1),))
+        rwd_0 = score_0 #(np.array(((self.ang_0 - aang_0),)) * 250 + score_0) / 2
+        rwd_1 = score_1 #(np.array(((self.ang_1 - aang_1),)) * 250 + score_1) / 2
+        
         self.ang_0 = aang_0
         self.ang_1 = aang_1
 
         if self.iter == 500:
             self.done = True
-        ret = (((*self.queue_length_per_line[[0,4,6,2]].flatten(), *self.mean_waittime_per_line[[0,4,6,2]].flatten()),(*(self.queue_length_per_line[[1,5,7,3]].flatten()), *self.mean_waittime_per_line[[1,5,7,3]].flatten())), (rwd_0, rwd_1), (self.done, self.done), (score_0, score_1))
+        ret = (((self.traffic_pointer[0], *self.queue_length_per_line[[0,4,6,2]].flatten(), *(self.mean_waittime_per_line[[0,4,6,2]] / 10).flatten()),(self.traffic_pointer[1], *(self.queue_length_per_line[[1,5,7,3]].flatten()), *(self.mean_waittime_per_line[[1,5,7,3]] / 10).flatten())), (rwd_0, rwd_1), (self.done, self.done), (score_0, score_1))
 
         return ret
     
@@ -391,7 +390,7 @@ def main():
         artists.append([ms,title])
     ani = ArtistAnimation(fig, artists, interval=100)
     print('a')
-    ani.save('{}.gif'.format(asd), dpi = 250)
+    ani.save('{}.gif'.format(asd), dpi = 200)
     print('b')
     plt.show()
 

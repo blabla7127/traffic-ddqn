@@ -101,7 +101,7 @@ class Brain:
         print(self.main_q_network)  # 신경망의 구조를 출력
 
         # 최적화 기법 선택
-        self.optimizer = optim.Adam(
+        self.optimizer = optim.RMSprop(
             self.main_q_network.parameters(), lr=0.0001)
 
     def replay(self):
@@ -128,7 +128,7 @@ class Brain:
         final_epsilon = 0.07
         
         if self.epsilon > final_epsilon:
-            self.epsilon -= (initial_epsilon - final_epsilon) / 1e6
+            self.epsilon -= (initial_epsilon - final_epsilon) / 7e6
         if self.epsilon <= np.random.uniform(0, 1):
             self.main_q_network.eval()  # 신경망을 추론 모드로 전환
             with torch.no_grad():
@@ -268,7 +268,7 @@ class Environment_:
 
     def __init__(self):
         self.env = gym.make(ENV)
-        num_states = 4 * 3 * 2
+        num_states = 1 + 4 * 3 * 2
         num_actions = 4
         self.agent = Agent(num_states, num_actions)  # 에이전트 역할을 할 객체를 생성
 
@@ -373,7 +373,7 @@ class Environment_:
 
                 # Experience Replay로 Q함수를 수정
                 self.agent.update_q_function()
-                if iter%3000 == 0:
+                if iter%1000 == 0:
                     self.agent.update_target_q_function()
                 # 관측 결과를 업데이트
                 state_0 = state_next_0
@@ -401,7 +401,7 @@ class Environment_:
                                 transform=ax.transAxes, fontsize="large")
                     artists.append([ms,title])
                 ani = ArtistAnimation(fig, artists, interval=100)
-                ani.save('anims/{}/{}.gif'.format(FILENAME,episode), dpi = 250)        
+                ani.save('anims/{}/{}.gif'.format(FILENAME,episode), dpi = 200)        
                     
             if episode_final is True:
                 # 애니메이션 생성 부분을 주석처리함
