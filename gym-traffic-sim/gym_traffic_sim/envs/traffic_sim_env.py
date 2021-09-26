@@ -60,16 +60,16 @@ class TrafficSimEnv(gym.Env):
                 [0,0,0]
             ],
             [
-                [0,0,0],
-                [1,0,0],
-                [1,0,0],
-                [0,0,0]
-            ],
-            [
                 [1,0,0],
                 [0,0,0],
                 [0,0,0],
                 [1,0,0]
+            ],
+            [
+                [0,0,0],
+                [1,0,0],
+                [1,0,0],
+                [0,0,0]
             ],
             [
                 [0,0,0],
@@ -79,7 +79,7 @@ class TrafficSimEnv(gym.Env):
             ]
 
         ], np.bool8)
-        self.actions = ((0,0),(0,1),(0,2),(0,3),(1,0),(1,1),(1,2),(1,3),(2,0),(2,1),(2,2),(2,3),(3,0),(3,1),(3,2),(3,3))
+        #self.actions = ((0,0),(0,1),(0,2),(0,3),(1,0),(1,1),(1,2),(1,3),(2,0),(2,1),(2,2),(2,3),(3,0),(3,1),(3,2),(3,3))
         self.len_lines_buf = (self.LEN_ROAD)//2 + 5
         self.len_cars_buf = self.len_lines_buf * 8 * 3
         self.reset()
@@ -102,24 +102,43 @@ class TrafficSimEnv(gym.Env):
         self.done = False
         self.trafficlight = np.zeros((8,3), np.bool8)
         self.traffic_status = np.zeros(2, dtype=np.int8) - 1
-        self.traffic_pointer = np.zeros(2, dtype=np.int8) + 3
+        self.traffic_counter = np.zeros(2, dtype=np.int8)
+        self.traffic_pointer = np.zeros(2, dtype=np.int8)
+        self.traffic_changing = np.zeros(2, dtype=np.bool8)
 
         self.exit_loop = 0
 
-        return ((self.traffic_pointer[0], *self.queue_length_per_line[[0,4,6,2]].flatten(), *(self.mean_waittime_per_line[[0,4,6,2]] / 10).flatten()),(self.traffic_pointer[1], *self.queue_length_per_line[[1,5,7,3]].flatten(), *(self.mean_waittime_per_line[[1,5,7,3]] / 10).flatten()))
+        return (np.array([*np.eye(5)[(self.traffic_status[0])], *self.queue_length_per_line[[0,2,4,6]].flatten(), *(self.mean_waittime_per_line[[0,2,4,6]] / 10).flatten()]),\
+            np.array([*np.eye(5)[(self.traffic_status[1])], *self.queue_length_per_line[[1,3,5,7]].flatten(), *(self.mean_waittime_per_line[[1,3,5,7]] / 10).flatten()]))
 
     def adjust_trafficlight(self, action):
         foo = [[0,2,4,6],[1,3,5,7]]
         for iter, iaction in zip([0,1],action):
-            if iaction != self.traffic_status[iter]:
-                self.traffic_pointer[iter] = (self.traffic_pointer[iter] + 1) % 4
-                if self.traffic_pointer[iter] == 3:
-                    self.trafficlight[foo[iter]] = self.trafficlight_types[iaction]
-                    self.traffic_status[iter] = iaction
+            if iaction == 1:
+                self.traffic_changing[iter] = True
+            if self.traffic_changing[iter] == True:
+                self.traffic_counter[iter] = (self.traffic_counter[iter] + 1) % 5
+                if self.traffic_counter[iter] == 0:
+                    self.traffic_changing[iter] = False
+                    self.traffic_pointer[iter] = (self.traffic_pointer[iter] + 1) % 4
+                    self.trafficlight[foo[iter]] = self.trafficlight_types[self.traffic_pointer[iter]]
+                    self.traffic_status[iter] = self.traffic_pointer[iter]
                 else:
                     self.trafficlight[foo[iter]] = self.trafficlight_types[-1]
-            else:
-                self.traffic_pointer[iter] = 3
+                    self.traffic_status[iter] = -1
+
+
+            # if iaction != self.traffic_status[iter]:
+            #     self.traffic_counter[iter] = (self.traffic_counter[iter] + 1) % 4
+            #     if self.traffic_counter[iter] == ?:
+            #         self.trafficlight[foo[iter]] = self.trafficlight_types[iaction]
+            #         self.traffic_status[iter] = iaction
+            #     else:
+            #         self.trafficlight[foo[iter]] = self.trafficlight_types[-1]
+            #         self.traffic_status[iter] = -1
+            # else:
+            #     self.traffic_counter[iter] = ?
+            #     self.traffic_status[iter] = iaction
 
     def add_line_buf(self, line_0, line_1, car_id):
         linebuf_pointer = self.linebuf_pointer[line_0, line_1]
@@ -182,7 +201,7 @@ class TrafficSimEnv(gym.Env):
         pos = self.lines_buf[...,2]
         speed = self.lines_buf[...,4]
         pos -= speed
-        mask_is_in_queue = (self.lines_buf[..., 2] < (self.LEN_ROAD//2)) & (self.lines_buf[..., 2] >= 0) & (mask_is_valid)
+        mask_is_in_queue = (self.lines_buf[..., 2] < ((self.LEN_ROAD//2) * 2)) & (self.lines_buf[..., 2] >= 0) & (mask_is_valid)
         queue_len = mask_is_in_queue.sum(axis=-1)
         waittime_sum = np.zeros((8,3))
         for i in range(8):
@@ -259,15 +278,15 @@ class TrafficSimEnv(gym.Env):
         self.create_car()
         self.move_car()
 
-        # rms_queue_len_0 = np.sqrt(np.mean(np.square(self.queue_length_per_line[[0,4,6,2]])))
-        # rms_queue_len_1 = np.sqrt(np.mean(np.square(self.queue_length_per_line[[1,5,7,3]])))
-        # rms_waittime_0 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[0,4,6,2]])))
-        # rms_waittime_1 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[1,5,7,3]])))
+        # rms_queue_len_0 = np.sqrt(np.mean(np.square(self.queue_length_per_line[[0,2,4,6]])))
+        # rms_queue_len_1 = np.sqrt(np.mean(np.square(self.queue_length_per_line[[1,3,5,7]])))
+        # rms_waittime_0 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[0,2,4,6]])))
+        # rms_waittime_1 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[1,3,5,7]])))
         # aang_0 = rms_queue_len_0 * rms_waittime_0
         # aang_1 = rms_queue_len_1 * rms_waittime_1
 
-        aang_0 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[0,4,6,2]]*self.queue_length_per_line[[0,4,6,2]])))/1000
-        aang_1 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[1,5,7,3]]*self.queue_length_per_line[[1,5,7,3]])))/1000
+        aang_0 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[0,2,4,6]]*self.queue_length_per_line[[0,2,4,6]])))/1000
+        aang_1 = np.sqrt(np.mean(np.square(self.mean_waittime_per_line[[1,3,5,7]]*self.queue_length_per_line[[1,3,5,7]])))/1000
     
         score_0 = np.array(((-aang_0),))
         score_1 = np.array(((-aang_1),))
@@ -279,7 +298,9 @@ class TrafficSimEnv(gym.Env):
 
         if self.iter == 500:
             self.done = True
-        ret = (((self.traffic_pointer[0], *self.queue_length_per_line[[0,4,6,2]].flatten(), *(self.mean_waittime_per_line[[0,4,6,2]] / 10).flatten()),(self.traffic_pointer[1], *(self.queue_length_per_line[[1,5,7,3]].flatten()), *(self.mean_waittime_per_line[[1,5,7,3]] / 10).flatten())), (rwd_0, rwd_1), (self.done, self.done), (score_0, score_1))
+        ret = ((np.array([*np.eye(5)[(self.traffic_status[0])], *self.queue_length_per_line[[0,2,4,6]].flatten(), *(self.mean_waittime_per_line[[0,2,4,6]] / 10).flatten()]),\
+            np.array([*np.eye(5)[(self.traffic_status[0])], *(self.queue_length_per_line[[1,3,5,7]].flatten()), *(self.mean_waittime_per_line[[1,3,5,7]] / 10).flatten()])),\
+            (rwd_0, rwd_1), (self.done, self.done), (score_0, score_1))
 
         return ret
     
@@ -345,17 +366,13 @@ def main():
     rwd_sum = 0
     scr_sum = 0
     asdf = 0
-    asd = 15
+    asd = 30
     for i in range(500):
-        if asdf < asd:
-            action = 0
-        elif asdf < asd*2:
+        asdf = (asdf + 1) % asd
+        if asdf == 0:
             action = 1
-        elif asdf < asd*3:
-            action = 2
         else:
-            action = 3
-        asdf = (asdf + 1) % (asd * 4)
+            action = 0
         
         action1 = action
         action2 = action

@@ -20,7 +20,7 @@ Transition = namedtuple(
 ENV = 'gym_traffic_sim:traffic-sim-v0'  # 태스크 이름
 GAMMA = 0.99  # 시간할인율
 MAX_STEPS = 500  # 1에피소드 당 최대 단계 수
-NUM_EPISODES = 100000  # 최대 에피소드 수
+NUM_EPISODES = 50000  # 최대 에피소드 수
 
 # transition을 저장하기 위한 메모리 클래스
 
@@ -95,7 +95,7 @@ class Brain:
         self.memory = ReplayMemory(CAPACITY)
 
         # 신경망 구성
-        n_in, n_mid, n_out = num_states, 64, num_actions
+        n_in, n_mid, n_out = num_states, 32, num_actions
         self.main_q_network = Net(n_in, n_mid, n_out).to(device)  # Net 클래스를 사용
         self.target_q_network = Net(n_in, n_mid, n_out).to(device)  # Net 클래스를 사용
         print(self.main_q_network)  # 신경망의 구조를 출력
@@ -125,10 +125,19 @@ class Brain:
         # ε-greedy 알고리즘에서 서서히 최적행동의 비중을 늘린다
         #decay = 0.99995
         initial_epsilon = 1
+        middle_epsilon = 0.25
         final_epsilon = 0.07
+        decay = np.power(middle_epsilon/initial_epsilon, 1/1e6)
+        decay2 = np.power(final_epsilon/middle_epsilon, 1/3e6)
+
+        decay = np.sqrt(decay)
+        decay2 = np.sqrt(decay2)
         
-        if self.epsilon > final_epsilon:
-            self.epsilon -= (initial_epsilon - final_epsilon) / 7e6
+        if self.epsilon > middle_epsilon:
+            self.epsilon *= decay
+        elif self.epsilon > final_epsilon:
+            self.epsilon *= decay2
+
         if self.epsilon <= np.random.uniform(0, 1):
             self.main_q_network.eval()  # 신경망을 추론 모드로 전환
             with torch.no_grad():
@@ -268,8 +277,8 @@ class Environment_:
 
     def __init__(self):
         self.env = gym.make(ENV)
-        num_states = 1 + 4 * 3 * 2
-        num_actions = 4
+        num_states = 5 + 4 * 3 * 2
+        num_actions = 2
         self.agent = Agent(num_states, num_actions)  # 에이전트 역할을 할 객체를 생성
 
     def run(self):
@@ -284,7 +293,7 @@ class Environment_:
         state_1 = torch.zeros(0).to(device)
 
         iter = 0
-        text = ('episodes:steps:mean_steps(10):rwd:mean_rwd:rwd_sum:score_sum:iter')
+        text = ('episodes:steps:mean_steps(10):rwd:mean_rwd:rwd_sum:epsilon:iter')
         log_ = open('logs/{}.log'.format(FILENAME), 'a')
         log_.write(text+'\n')
         log_.close()
@@ -381,7 +390,7 @@ class Environment_:
 
                 # 에피소드 종료 처리
                 if done_0:
-                    text = ('{0:7d}:{1:6d}:{2:9.1f}:{3:9.5f}:{4:9.5f}:{5:9.1f}:{6:9.5f}:{7:10d}').format(episode, step + 1, episode_10_list.mean(), (rwd_0[0]+rwd_1[0]).cpu().numpy(), rwd[0].cpu().numpy()/(step + 1), rwd[0].cpu().numpy(), score, iter)
+                    text = ('{0:7d}:{1:6d}:{2:9.1f}:{3:9.5f}:{4:9.5f}:{5:9.1f}:{6:9.7f}:{7:10d}').format(episode, step + 1, episode_10_list.mean(), (rwd_0[0]+rwd_1[0]).cpu().numpy(), rwd[0].cpu().numpy()/(step + 1), rwd[0].cpu().numpy(), self.agent.brain.epsilon, iter)
                     print(text)
                     log_ = open('logs/{}.log'.format(FILENAME), 'a')
                     log_.write(text+'\n')

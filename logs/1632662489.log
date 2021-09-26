@@ -1,0 +1,2 @@
+episodes:steps:mean_steps(10):rwd:mean_rwd:rwd_sum:epsilon:iter
+      0:   500:     50.0: -3.51658: -1.35634:   -678.2:0.9993071:       500
