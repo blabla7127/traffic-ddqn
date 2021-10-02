@@ -280,6 +280,7 @@ class Environment_:
         num_states = 5 + 4 * 3 * 2
         num_actions = 2
         self.agent = Agent(num_states, num_actions)  # 에이전트 역할을 할 객체를 생성
+        #self.agent.brain.main_q_network.load_state_dict(torch.load('./Model_save.model'))
 
     def run(self):
         '''실행'''
@@ -399,6 +400,7 @@ class Environment_:
                     break
             
             if save_anim:
+                torch.save(self.agent.brain.main_q_network.state_dict(), './Model_save.model')
                 fig, ax = plt.subplots(1,1)
                 artists = []
 

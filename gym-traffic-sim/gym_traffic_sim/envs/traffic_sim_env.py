@@ -299,7 +299,7 @@ class TrafficSimEnv(gym.Env):
         if self.iter == 500:
             self.done = True
         ret = ((np.array([*np.eye(5)[(self.traffic_status[0])], *self.queue_length_per_line[[0,2,4,6]].flatten(), *(self.mean_waittime_per_line[[0,2,4,6]] / 10).flatten()]),\
-            np.array([*np.eye(5)[(self.traffic_status[0])], *(self.queue_length_per_line[[1,3,5,7]].flatten()), *(self.mean_waittime_per_line[[1,3,5,7]] / 10).flatten()])),\
+            np.array([*np.eye(5)[(self.traffic_status[1])], *(self.queue_length_per_line[[1,3,5,7]].flatten()), *(self.mean_waittime_per_line[[1,3,5,7]] / 10).flatten()])),\
             (rwd_0, rwd_1), (self.done, self.done), (score_0, score_1))
 
         return ret
