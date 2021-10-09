@@ -75,7 +75,7 @@ beta                   = 0.01
 max_T                  = 5000
 max_t                  = 32
 N_worker               = 8
-model_path             = './Model_save.model'
+model_path             = './Model_A3C_save.model'
 
 class GlobalAdam(torch.optim.Adam):
     def __init__(self, params, lr):
