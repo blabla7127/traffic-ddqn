@@ -11,24 +11,6 @@ import os
 FILENAME = int(time.time())
 os.mkdir('anims/{}'.format(FILENAME))
 
-# namedtuple 생성
-from collections import namedtuple
-
-Transition = namedtuple(
-    'Transition', ('state', 'action', 'next_state', 'reward'))
-
-# 상수 정의
-ENV = 'gym_traffic_sim:traffic-sim-v0'  # 태스크 이름
-GAMMA = 0.99  # 시간할인율
-MAX_STEPS = 500  # 1에피소드 당 최대 단계 수
-NUM_EPISODES = 50000  # 최대 에피소드 수
-
-# transition을 저장하기 위한 메모리 클래스
-
-#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#print(device)
-
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F 
@@ -68,6 +50,8 @@ class ActorCriticNet(nn.Module):
                 nn.init.xavier_uniform_(module.weight)
                 nn.init.constant_(module.bias, 0)
 
+
+ENV = 'gym_traffic_sim:traffic-sim-v0'
 # settings
 learning_rate          = 1e-4
 gamma                  = 0.99
@@ -99,7 +83,7 @@ def local_train(process, global_model, optimizer):
     local_model.load_state_dict(global_model.state_dict())
 
     total_reward =0
-    max_score = 0
+    max_score = -1000
 
     for T in range(max_T):
         state_0, state_1 = env.reset()
@@ -208,8 +192,8 @@ def local_train(process, global_model, optimizer):
         if score > max_score:
             max_score = score
 
-        if (T+1) % 10 == 0 :
-            print('Process {} of episode {}, avg score : {}, max score : {}'.format(process, T+1, total_reward/10, max_score))
+        if (T+1) % 5 == 0 :
+            print('Process {} of episode {}, avg score : {}, max score : {}'.format(process, T+1, total_reward/5, max_score))
             total_reward = 0
     
     env.close()

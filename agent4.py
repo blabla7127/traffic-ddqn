@@ -18,6 +18,10 @@ GAMMA = 0.99
 MAX_STEPS = 500
 NUM_EPISODES = 50000
 
+########
+LOAD_MODEL = True
+########
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
@@ -83,7 +87,12 @@ CAPACITY = 10000
 class Brain:
     def __init__(self, num_states, num_actions):
         self.num_actions = num_actions
-        self.epsilon = 1
+
+        if LOAD_MODEL == True:
+            self.epsilon = 0.07
+        else:
+            self.epsilon = 1
+
         self.memory = ReplayMemory(CAPACITY)
 
         n_in, n_mid, n_out = num_states, 32, num_actions
@@ -105,9 +114,10 @@ class Brain:
     def decide_action(self, state):
         initial_epsilon = 1
         middle_epsilon = 0.25
-        final_epsilon = 0.07
+        final_epsilon = 0.01
+
         decay = np.power(middle_epsilon/initial_epsilon, 1/1e6)
-        decay2 = np.power(final_epsilon/middle_epsilon, 1/3e6)
+        decay2 = np.power(final_epsilon/middle_epsilon, 1/6e6)
 
         decay = np.sqrt(decay)
         decay2 = np.sqrt(decay2)
@@ -204,7 +214,9 @@ class Environment_:
         num_states = 5 + 4 * 3 * 2
         num_actions = 2
         self.agent = Agent(num_states, num_actions)
-        self.agent.brain.main_q_network.load_state_dict(torch.load('./Model_save.model'))
+        if LOAD_MODEL == True:
+            self.agent.brain.main_q_network.load_state_dict(torch.load('./Model_save.model'))
+            self.agent.brain.target_q_network.load_state_dict(torch.load('./Model_save.model'))
 
     def run(self):
         complete_episodes = 0
